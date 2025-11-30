@@ -1,18 +1,21 @@
 import React, { createContext, useContext, useState } from 'react';
-import type { CartItem, Product, PaymentMethod } from '../types';
+import type { CartItem, Product, PaymentMethod, CreateOrderPayload } from '../types';
 
-interface CartContextValue {
+// 1. Exportamos la interfaz para evitar el error de TypeScript en useCart
+export interface CartContextValue {
     items: CartItem[];
     addToCart: (product: Product, qty?: number) => void;
     removeFromCart: (productId: number) => void;
     updateQty: (productId: number, qty: number) => void;
     clear: () => void;
     total: () => number;
-    createOrderPayload: (paymentMethod: PaymentMethod, cashierId?: number) => any;
+    createOrderPayload: (paymentMethod: PaymentMethod, cashierId?: number) => CreateOrderPayload;
 }
 
 const CartContext = createContext<CartContextValue | undefined>(undefined);
 
+// 2. Desactivamos la advertencia de Vite/ESLint sobre exportación de componentes
+// eslint-disable-next-line react-refresh/only-export-components
 export const useCart = (): CartContextValue => {
     const ctx = useContext(CartContext);
     if (!ctx) throw new Error('useCart must be used inside CartProvider');
@@ -46,7 +49,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const total = () => items.reduce((s, it) => s + it.quantity * it.product.price, 0);
 
-    const createOrderPayload = (paymentMethod: PaymentMethod, cashierId?: number) => ({
+    // 3. Implementación con tipos estrictos
+    const createOrderPayload = (paymentMethod: PaymentMethod, cashierId?: number): CreateOrderPayload => ({
         items: items.map(i => ({ productId: i.product.id, quantity: i.quantity })),
         paymentMethod,
         cashierId
