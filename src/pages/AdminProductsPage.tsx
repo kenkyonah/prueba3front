@@ -1,28 +1,24 @@
 import React, { useEffect, useState } from 'react';
-import { Table, Button, Modal, Form, Input, InputNumber, Select, message, Space, Card } from 'antd';
+import { Table, Button, Modal, Form, Input, InputNumber, Select, message, Space, Card, Popconfirm } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
-import { getProducts } from '../api/api';
-import type { Product, Category } from '../types';
-
-interface ProductFormValues {
-    name: string;
-    price: number;
-    categoryId: number;
-    imageUrl?: string;
-    description?: string;
-}
+import { getProducts, createProduct, updateProduct, deleteProduct } from '../api/api';
+import type { Product, Category, CreateProductPayload } from '../types';
 
 const AdminProductsPage: React.FC = () => {
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
+
+    // Estado para saber si estamos editando (guarda el producto seleccionado)
+    const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+
     const [form] = Form.useForm();
 
     const categories: Category[] = [
-        { id: 1, name: 'Electrónica' },
-        { id: 2, name: 'Accesorios' },
-        { id: 3, name: 'Juegos' }
+        { id: 1, name: 'Semillas y Cultivo' },
+        { id: 2, name: 'Herramientas' },
+        { id: 3, name: 'Macetas y Decoración' }
     ];
 
     const fetchProducts = async () => {
@@ -32,10 +28,7 @@ const AdminProductsPage: React.FC = () => {
             setProducts(data);
         } catch (error) {
             console.error(error);
-            setProducts([
-                { id:1, name:'PS5 Controller', price:59000, categoryId:2, description:'Dualsense' },
-                { id:2, name:'Monitor 144hz', price:150000, categoryId:1, description:'LG UltraGear' }
-            ]);
+            message.error('Error cargando productos');
         } finally {
             setLoading(false);
         }
@@ -45,14 +38,53 @@ const AdminProductsPage: React.FC = () => {
         fetchProducts();
     }, []);
 
-    const handleCreate = (values: ProductFormValues) => {
-        console.log('Crear producto:', values);
-        message.success('Producto creado (simulado)');
-        setIsModalOpen(false);
-        form.resetFields();
+    // ABRIR MODAL (CREAR O EDITAR)
+    const openModal = (product?: Product) => {
+        if (product) {
+            // MODO EDICIÓN: Rellenamos el formulario con los datos del producto
+            setEditingProduct(product);
+            form.setFieldsValue(product);
+        } else {
+            // MODO CREACIÓN: Limpiamos todo
+            setEditingProduct(null);
+            form.resetFields();
+        }
+        setIsModalOpen(true);
     };
 
-    // Tipamos las columnas correctamente
+    // GUARDAR (CREAR O ACTUALIZAR)
+    const handleSave = async (values: CreateProductPayload) => {
+        try {
+            if (editingProduct) {
+                // Si existe editingProduct, es una ACTUALIZACIÓN
+                await updateProduct(editingProduct.id, values);
+                message.success('Producto actualizado correctamente');
+            } else {
+                // Si no, es una CREACIÓN
+                await createProduct(values);
+                message.success('Producto creado correctamente');
+            }
+            setIsModalOpen(false);
+            form.resetFields();
+            fetchProducts(); // Recargar tabla
+        } catch (error) {
+            console.error(error);
+            message.error('Error al guardar.');
+        }
+    };
+
+    // ELIMINAR
+    const handleDelete = async (id: number) => {
+        try {
+            await deleteProduct(id);
+            message.success('Producto eliminado');
+            fetchProducts(); // Recargar tabla
+        } catch (error) {
+            console.error(error);
+            message.error('No se pudo eliminar el producto');
+        }
+    };
+
     const columns: ColumnsType<Product> = [
         { title: 'ID', dataIndex: 'id', width: 60, responsive: ['md'] },
         { title: 'Nombre', dataIndex: 'name' },
@@ -72,8 +104,23 @@ const AdminProductsPage: React.FC = () => {
             key: 'actions',
             render: (_, record) => (
                 <Space>
-                    <Button icon={<EditOutlined />} size="small" />
-                    <Button danger icon={<DeleteOutlined />} size="small" onClick={() => console.log(record.id)} />
+                    {/* Botón Editar: Abre el modal con los datos */}
+                    <Button
+                        icon={<EditOutlined />}
+                        size="small"
+                        onClick={() => openModal(record)}
+                    />
+
+                    {/* Botón Eliminar: Muestra confirmación antes de borrar */}
+                    <Popconfirm
+                        title="¿Estás seguro?"
+                        description="Esta acción no se puede deshacer"
+                        onConfirm={() => handleDelete(record.id)}
+                        okText="Sí, borrar"
+                        cancelText="No"
+                    >
+                        <Button danger icon={<DeleteOutlined />} size="small" />
+                    </Popconfirm>
                 </Space>
             )
         }
@@ -81,7 +128,14 @@ const AdminProductsPage: React.FC = () => {
 
     return (
         <div style={{ padding: 24 }}>
-            <Card title="Gestión de Productos" extra={<Button type="primary" icon={<PlusOutlined />} onClick={() => setIsModalOpen(true)}>Nuevo Producto</Button>}>
+            <Card
+                title="Gestión de Productos"
+                extra={
+                    <Button type="primary" icon={<PlusOutlined />} onClick={() => openModal()}>
+                        Nuevo Producto
+                    </Button>
+                }
+            >
                 <Table
                     rowKey="id"
                     dataSource={products}
@@ -92,24 +146,39 @@ const AdminProductsPage: React.FC = () => {
                 />
             </Card>
 
-            <Modal title="Nuevo Producto" open={isModalOpen} onCancel={() => setIsModalOpen(false)} onOk={form.submit}>
-                <Form form={form} layout="vertical" onFinish={handleCreate}>
-                    <Form.Item name="name" label="Nombre" rules={[{ required: true }]}>
+            <Modal
+                title={editingProduct ? "Editar Producto" : "Nuevo Producto"}
+                open={isModalOpen}
+                onCancel={() => setIsModalOpen(false)}
+                onOk={form.submit}
+                okText="Guardar"
+                cancelText="Cancelar"
+            >
+                <Form form={form} layout="vertical" onFinish={handleSave}>
+                    <Form.Item name="name" label="Nombre" rules={[{ required: true, message: 'Falta el nombre' }]}>
                         <Input />
                     </Form.Item>
-                    <Form.Item name="price" label="Precio" rules={[{ required: true }]}>
-                        <InputNumber style={{ width: '100%' }} formatter={value => `$ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} />
+
+                    <Form.Item name="price" label="Precio" rules={[{ required: true, message: 'Falta el precio' }]}>
+                        <InputNumber
+                            style={{ width: '100%' }}
+                            formatter={value => `$ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                            parser={(value) => value?.replace(/\$\s?|(,*)/g, '') as unknown as number}
+                        />
                     </Form.Item>
-                    <Form.Item name="categoryId" label="Categoría" rules={[{ required: true }]}>
+
+                    <Form.Item name="categoryId" label="Categoría" rules={[{ required: true, message: 'Elige una categoría' }]}>
                         <Select placeholder="Selecciona una categoría">
                             {categories.map(c => <Select.Option key={c.id} value={c.id}>{c.name}</Select.Option>)}
                         </Select>
                     </Form.Item>
+
                     <Form.Item name="imageUrl" label="URL Imagen">
-                        <Input placeholder="http://..." />
+                        <Input placeholder="https://..." />
                     </Form.Item>
+
                     <Form.Item name="description" label="Descripción">
-                        <Input.TextArea />
+                        <Input.TextArea rows={3} />
                     </Form.Item>
                 </Form>
             </Modal>

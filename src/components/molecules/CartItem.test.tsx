@@ -54,9 +54,15 @@ describe('CartItem Component', () => {
             </CartProvider>
         );
 
-        // Ant Design suele usar iconos, buscamos el botón que contiene el icono
-        const deleteBtn = screen.getByRole('button');
-        fireEvent.click(deleteBtn);
-        // Si no falla, el evento se disparó correctamente hacia el contexto
+        // CORRECCIÓN IMPORTANTE:
+        // InputNumber tiene botones internos (flechas) que confunden al test.
+        // En lugar de buscar "cualquier botón", buscamos específicamente el icono de eliminar.
+        // Ant Design pone aria-label="delete" en el icono de basura.
+        const deleteIcon = screen.getByLabelText('delete');
+
+        expect(deleteIcon).toBeInTheDocument();
+
+        // Al hacer click en el icono, el evento sube (burbujea) hasta el botón y lo activa.
+        fireEvent.click(deleteIcon);
     });
 });

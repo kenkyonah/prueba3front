@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { CreateOrderPayload } from '../types';
+import type {CreateOrderPayload, CreateProductPayload} from '../types';
 
 // Creamos la conexión base con el backend
 const api = axios.create({
@@ -28,7 +28,16 @@ export const getProducts = () => api.get('/products');
 // Enviar una orden de compra
 export const createOrder = (payload: CreateOrderPayload) => api.post('/orders', payload);
 
-// Registrar un nuevo usuario (NUEVO)
+// Registrar un nuevo usuario
 export const registerUser = (userData: CreateOrderPayload) => api.post('/auth/register', userData);
+
+// Crear un producto nuevo en la base de datos (Requiere ser ADMIN)
+export const createProduct = (productData: CreateProductPayload) => api.post('/products', productData);
+
+// Actualizar un producto existente
+export const updateProduct = (id: number, productData: any) => api.put(`/products/${id}`, productData);
+
+// Eliminar un producto
+export const deleteProduct = (id: number) => api.delete(`/products/${id}`);
 
 export default api;

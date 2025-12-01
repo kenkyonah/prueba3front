@@ -48,3 +48,12 @@ export interface CreateOrderPayload {
     paymentMethod: PaymentMethod;
     cashierId?: number;
 }
+
+// Estructura para crear un producto nuevo (Sin ID, porque lo genera la BD)
+export interface CreateProductPayload {
+    name: string;
+    price: number;
+    categoryId: number;
+    imageUrl?: string;
+    description?: string;
+}
