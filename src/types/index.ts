@@ -57,3 +57,32 @@ export interface CreateProductPayload {
     imageUrl?: string;
     description?: string;
 }
+
+// Estructura de un ítem dentro de una orden (Backend)
+export interface OrderItemBackend {
+    id: number;
+    quantity: number;
+    priceAtPurchase: number;
+    product: Product; // Reutilizamos el tipo Product
+}
+
+// Estructura completa de una Orden que viene del Backend
+export interface Order {
+    id: number;
+    date: string;
+    total: number;
+    paymentMethod: PaymentMethod;
+    items: OrderItemBackend[];
+}
+
+// Datos calculados para la Boleta Visual
+export interface ReceiptData {
+    items: { product: Product; quantity: number }[];
+    total: number;
+    iva: number;
+    neto: number;
+    paymentMethod: PaymentMethod;
+    cashGiven: number;
+    change: number;
+    date: string;
+}
